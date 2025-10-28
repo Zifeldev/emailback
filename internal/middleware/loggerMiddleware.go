@@ -33,7 +33,6 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
-
 const (
 	HeaderTraceID       = "X-Trace-ID"
 	HeaderRequestID     = "X-Request-ID"
@@ -41,7 +40,6 @@ const (
 
 	ginKeyTraceID = "trace_id"
 )
-
 
 type contextKey string
 
@@ -54,9 +52,6 @@ func getTraceID(ctx context.Context) string {
 	return ""
 }
 
-
- 
-
 func LoggerMiddleware(log *logrus.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -66,13 +61,17 @@ func LoggerMiddleware(log *logrus.Logger) gin.HandlerFunc {
 
 		c.Next()
 		status := c.Writer.Status()
+		bytes := 0
+		if w, ok := c.Writer.(interface{ Size() int }); ok {
+			bytes = w.Size()
+		}
 		duration := time.Since(start)
 
 		entry := log.WithFields(logrus.Fields{
 			"method":        c.Request.Method,
 			"path":          c.Request.URL.Path,
 			"status":        status,
-			"size":          rw.size,
+			"bytes_sent":    bytes,
 			"duration_ms":   duration.Milliseconds(),
 			"client_ip":     c.ClientIP(),
 			"user_agent":    c.Request.UserAgent(),
@@ -80,9 +79,9 @@ func LoggerMiddleware(log *logrus.Logger) gin.HandlerFunc {
 			"error_message": c.Errors.ByType(gin.ErrorTypePrivate).String(),
 		})
 
-		if rw.status >= 500 {
+		if status >= 500 {
 			entry.Error("server_error")
-		} else if rw.status >= 400 {
+		} else if status >= 400 {
 			entry.Warn("client_error")
 		} else {
 			entry.Info("request_processed")
@@ -114,37 +113,37 @@ func TraceMiddleware(_ *logrus.Logger) gin.HandlerFunc {
 }
 
 func RecoveryMiddleware(log *logrus.Logger) gin.HandlerFunc {
-    return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
-        traceID := getTraceID(c.Request.Context())
-        panicMsg := fmt.Sprint(recovered)
-        stack := string(debug.Stack())
+	return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
+		traceID := getTraceID(c.Request.Context())
+		panicMsg := fmt.Sprint(recovered)
+		stack := string(debug.Stack())
 
-        lower := strings.ToLower(panicMsg)
-        isBroken := strings.Contains(lower, "broken pipe") || strings.Contains(lower, "connection reset by peer")
+		lower := strings.ToLower(panicMsg)
+		isBroken := strings.Contains(lower, "broken pipe") || strings.Contains(lower, "connection reset by peer")
 
-        entry := log.WithFields(logrus.Fields{
-            "method":     c.Request.Method,
-            "path":       c.Request.URL.Path,
-            "client_ip":  c.ClientIP(),
-            "user_agent": c.Request.UserAgent(),
-            "trace_id":   traceID,
-            "panic":      panicMsg,
-        })
-        if !isBroken {
-            entry = entry.WithField("stack", stack)
-        }
+		entry := log.WithFields(logrus.Fields{
+			"method":     c.Request.Method,
+			"path":       c.Request.URL.Path,
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.Request.UserAgent(),
+			"trace_id":   traceID,
+			"panic":      panicMsg,
+		})
+		if !isBroken {
+			entry = entry.WithField("stack", stack)
+		}
 
-        if isBroken {
-            entry.Warn("client_broken_pipe")
-            c.Abort() 
-            return
-        }
+		if isBroken {
+			entry.Warn("client_broken_pipe")
+			c.Abort()
+			return
+		}
 
-        c.Header(HeaderTraceID, traceID)
-        entry.Error("panic_recovered")
-        c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-            "error":    "internal_server_error",
-            "trace_id": traceID,
-        })
-    })
+		c.Header(HeaderTraceID, traceID)
+		entry.Error("panic_recovered")
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error":    "internal_server_error",
+			"trace_id": traceID,
+		})
+	})
 }

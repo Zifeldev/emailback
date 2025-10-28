@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type EmailEntity struct {
@@ -97,8 +99,12 @@ WHERE id = $1
 		&email.Language, &confNull, &metricsJSON, &headersJSON, &email.CreatedAt, &email.RawSize,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrEmailNotFound
+		}
 		return nil, err
 	}
+
 	if !dateNull.IsZero() {
 		datePtr = &dateNull
 	}

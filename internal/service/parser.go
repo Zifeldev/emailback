@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/Zifeldev/emailback/internal/lang"
+	"github.com/Zifeldev/emailback/internal/metrics"
 	"github.com/Zifeldev/emailback/internal/repository"
 	"github.com/google/uuid"
 	"github.com/jhillyerd/enmime"
 )
-
 
 type Options struct {
 	IncludeHTML     bool
@@ -37,11 +37,12 @@ func NewEnmimeParser(opts Options, detector lang.Detector) *EnmimeParser {
 }
 
 func (p *EnmimeParser) Parse(_ context.Context, raw []byte) (*repository.EmailEntity, error) {
+	start := time.Now()
 	env, err := enmime.ReadEnvelope(bytes.NewReader(raw))
 	if err != nil {
+		metrics.EmailsFailed.Inc()
 		return nil, err
 	}
-
 
 	headers := make(map[string]string, 32)
 	if env.Root != nil {
@@ -58,7 +59,6 @@ func (p *EnmimeParser) Parse(_ context.Context, raw []byte) (*repository.EmailEn
 	if msgID == "" {
 		msgID = uuid.NewString()
 	}
-
 
 	subjRaw := env.GetHeader("Subject")
 	subject := subjRaw
@@ -102,9 +102,7 @@ func (p *EnmimeParser) Parse(_ context.Context, raw []byte) (*repository.EmailEn
 		body = env.HTML
 	}
 
-
 	clean := lang.CleanText(body)
-
 
 	var langCode string
 	var langConf float64
@@ -118,7 +116,6 @@ func (p *EnmimeParser) Parse(_ context.Context, raw []byte) (*repository.EmailEn
 		}
 	}
 
-
 	var attachments []map[string]interface{}
 	for _, a := range env.Attachments {
 		meta := map[string]interface{}{
@@ -130,7 +127,7 @@ func (p *EnmimeParser) Parse(_ context.Context, raw []byte) (*repository.EmailEn
 	}
 
 	// Metrics
-	metrics := map[string]interface{}{
+	mailMetrics := map[string]interface{}{
 		"char_count":   len([]rune(clean)),
 		"word_count":   countWords(clean),
 		"line_count":   lineCount(clean),
@@ -150,12 +147,14 @@ func (p *EnmimeParser) Parse(_ context.Context, raw []byte) (*repository.EmailEn
 		HTML:       pickHTML(env.HTML, p.opts.IncludeHTML),
 		Language:   langCode,
 		Confidence: langConf,
-		Metrics:    metrics,
+		Metrics:    mailMetrics,
 		Headers:    headers,
 		CreatedAt:  time.Now().UTC(),
 		RawSize:    len(raw),
 	}
 
+	metrics.EmailsProcessed.Inc()
+	metrics.EmailProcessingDuration.Observe(time.Since(start).Seconds())
 	return entity, nil
 }
 
