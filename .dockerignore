@@ -1,0 +1,17 @@
+.git
+.github
+.vscode
+.idea
+bin
+dist
+coverage.*
+coverage/
+*.out
+*.log
+node_modules
+.env
+.env.*
+secrets
+.secrets
+deployments
+Dockerfile

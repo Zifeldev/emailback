@@ -1,0 +1,88 @@
+{
+	"info": {
+		"_postman_id": "9795ea32-cb8e-468c-b1de-7f3dbb3ccee1",
+		"name": "Email parser's",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "45703326"
+	},
+	"item": [
+		{
+			"name": "health",
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "parser",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "From: \"Alice Example\" <alice@example.com>\nTo: \"Bob Receiver\" <bob@example.com>\nSubject: [TEST] Письмо / Test / Auf Deutsch\nDate: Sun, 26 Oct 2025 12:00:00 +0300\nMessage-ID: <msgid-123@example.com>\nMIME-Version: 1.0\nContent-Type: multipart/mixed; boundary=\"mix-boundary-1\"\n\n--mix-boundary-1\nContent-Type: multipart/alternative; boundary=\"alt-boundary-1\"\n\n--alt-boundary-1\nContent-Type: text/plain; charset=\"utf-8\"\nContent-Transfer-Encoding: 7bit\n\nHello Bob,\n\nThis is a test message to check parsing, cleaning and language detection.\nIt contains:\n- English text\n- Русский текст: Привет, как дела?\n- Deutsch: Hallo, wie geht's?\n\n> On Sun, 25 Oct 2025 at 12:00 PM Max <max@example.com> wrote:\n> > This is quoted text that should be removed by the cleaner.\n\nA link: https://example.com/test\nReply-to: alice@example.com\n\n-- \nBest regards,\nAlice Example\n\nAm 25. Okt. 2025 schrieb Max Muster <max@example.com>:\n> Vorherige Nachricht\n\n--alt-boundary-1\nContent-Type: text/html; charset=\"utf-8\"\nContent-Transfer-Encoding: 7bit\n\n<html>\n  <body>\n    <p>Hello <strong>Bob</strong>,</p>\n    <p>This is a <em>test</em> message to check parsing, cleaning and language detection.</p>\n    <p>Русский кусок: <b>Привет мир!</b></p>\n    <p>Deutsch: <i>Hallo Welt!</i></p>\n    <blockquote>\n      <p>On Sun, 25 Oct 2025 at 12:00 PM Max &lt;max@example.com&gt; wrote:</p>\n      <p>&gt; This is quoted text that should be removed by the cleaner.</p>\n    </blockquote>\n    <p>Visit <a href=\"https://example.com/test\">https://example.com/test</a></p>\n    <p>Contact: <a href=\"mailto:alice@example.com\">alice@example.com</a></p>\n    <hr/>\n    <p>-- <br/>Mit freundlichen Grüßen,<br/>Alice Example</p>\n  </body>\n</html>\n\n--alt-boundary-1--\n\n--mix-boundary-1\nContent-Type: text/plain; name=\"sample.txt\"\nContent-Disposition: attachment; filename=\"sample.txt\"\nContent-Transfer-Encoding: base64\n\nc2FtcGxlIGF0dGFjaG1lbnQgY29udGVudC4KVGhpcyBpcyBhIHNhbXBsZSBmaWxlLg==\n--mix-boundary-1--",
+					"options": {
+						"raw": {
+							"language": "text"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/email",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"email"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "batch",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "From: \"Alice Example\" <alice@example.com>\nTo: \"Bob Receiver\" <bob@example.com>\nSubject: [TEST] Письмо / Test / Auf Deutsch\nDate: Sun, 26 Oct 2025 12:00:00 +0300\nMessage-ID: <msgid-123@example.com>\nMIME-Version: 1.0\nContent-Type: multipart/mixed; boundary=\"mix-boundary-1\"\n\n--mix-boundary-1\nContent-Type: multipart/alternative; boundary=\"alt-boundary-1\"\n\n--alt-boundary-1\nContent-Type: text/plain; charset=\"utf-8\"\nContent-Transfer-Encoding: 7bit\n\nHello Bob,\n\nThis is a test message to check parsing, cleaning and language detection.\nIt contains:\n- English text\n- Русский текст: Привет, как дела?\n- Deutsch: Hallo, wie geht's?\n\n> On Sun, 25 Oct 2025 at 12:00 PM Max <max@example.com> wrote:\n> > This is quoted text that should be removed by the cleaner.\n\nA link: https://example.com/test\nReply-to: alice@example.com\n\n-- \nBest regards,\nAlice Example\n\nAm 25. Okt. 2025 schrieb Max Muster <max@example.com>:\n> Vorherige Nachricht\n\n--alt-boundary-1\nContent-Type: text/html; charset=\"utf-8\"\nContent-Transfer-Encoding: 7bit\n\n<html>\n  <body>\n    <p>Hello <strong>Bob</strong>,</p>\n    <p>This is a <em>test</em> message to check parsing, cleaning and language detection.</p>\n    <p>Русский кусок: <b>Привет мир!</b></p>\n    <p>Deutsch: <i>Hallo Welt!</i></p>\n    <blockquote>\n      <p>On Sun, 25 Oct 2025 at 12:00 PM Max &lt;max@example.com&gt; wrote:</p>\n      <p>&gt; This is quoted text that should be removed by the cleaner.</p>\n    </blockquote>\n    <p>Visit <a href=\"https://example.com/test\">https://example.com/test</a></p>\n    <p>Contact: <a href=\"mailto:alice@example.com\">alice@example.com</a></p>\n    <hr/>\n    <p>-- <br/>Mit freundlichen Grüßen,<br/>Alice Example</p>\n  </body>\n</html>\n\n--alt-boundary-1--\n\n--mix-boundary-1\nContent-Type: text/plain; name=\"sample.txt\"\nContent-Disposition: attachment; filename=\"sample.txt\"\nContent-Transfer-Encoding: base64\n\nc2FtcGxlIGF0dGFjaG1lbnQgY29udGVudC4KVGhpcyBpcyBhIHNhbXBsZSBmaWxlLg==\n--mix-boundary-1--",
+					"options": {
+						"raw": {
+							"language": "text"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/email",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"email"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get all emails",
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		},
+		{
+			"name": "get email by id",
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": []
+		}
+	]
+}

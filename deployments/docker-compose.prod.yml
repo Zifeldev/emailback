@@ -1,0 +1,53 @@
+version: "3.9"
+
+secrets:
+  db_password:
+    file: ../secrets/db_password
+
+services:
+  migrate:
+    image: migrate/migrate:4
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [data]
+    volumes:
+      - ../db/migrations:/migrations:ro
+    secrets:
+      - db_password
+    environment:
+      DB_HOST: postgres
+      DB_USER: ${DB_USER:-emailback}
+      DB_NAME: ${DB_NAME:-emailback}
+    entrypoint: ["/usr/bin/env","sh","-c"]
+    command: >
+      DB_PASS="$(cat /run/secrets/db_password)" &&
+      DATABASE_URL="postgres://${DB_USER:-emailback}:${DB_PASS}@${DB_HOST:-postgres}:5432/${DB_NAME:-emailback}?sslmode=disable" &&
+      migrate -path /migrations -database "$DATABASE_URL" -verbose up &&
+      echo "Migrations completed"
+    restart: "no"
+
+  app:
+    environment:
+      LOG_LEVEL: warn
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    restart: always
+
+  postgres:
+    ports: []
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+
+  redis:
+    ports: []
+    command: ["redis-server","--appendonly","yes"]
