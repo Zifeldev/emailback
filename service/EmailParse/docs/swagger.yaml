@@ -1,0 +1,180 @@
+basePath: /
+definitions:
+  controllers.EmailsListResponse:
+    properties:
+      count:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/repository.EmailEntity'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+    type: object
+  repository.EmailEntity:
+    properties:
+      created_at:
+        type: string
+      date:
+        type: string
+      from:
+        type: string
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      html:
+        type: string
+      id:
+        type: string
+      language:
+        type: string
+      language_confidence:
+        type: number
+      message_id:
+        type: string
+      metrics:
+        additionalProperties: true
+        type: object
+      raw_size:
+        type: integer
+      subject:
+        type: string
+      text:
+        type: string
+      to:
+        items:
+          type: string
+        type: array
+    type: object
+info:
+  contact: {}
+  description: Service for parsing and storing email messages
+  title: EmailBack API
+  version: "1.0"
+paths:
+  /emails:
+    get:
+      parameters:
+      - description: Limit
+        in: query
+        minimum: 1
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        minimum: 0
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controllers.EmailsListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List emails
+      tags:
+      - emails
+  /emails/{id}:
+    get:
+      parameters:
+      - description: Email ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.EmailEntity'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get email by ID
+      tags:
+      - emails
+  /health:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Liveness probe
+      tags:
+      - health
+  /healthz:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Database health check
+      tags:
+      - health
+  /parse:
+    post:
+      consumes:
+      - text/plain
+      - message/rfc822
+      description: Accepts raw EML (text/plain or message/rfc822), parses it and persists
+        to DB
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/repository.EmailEntity'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Parse and save an email
+      tags:
+      - emails
+swagger: "2.0"
