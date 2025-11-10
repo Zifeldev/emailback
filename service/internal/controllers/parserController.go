@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Zifeldev/emailback/service/internal/lang"
 	"github.com/Zifeldev/emailback/service/internal/middleware"
 	"github.com/Zifeldev/emailback/service/internal/repository"
 	"github.com/Zifeldev/emailback/service/internal/service"
@@ -22,19 +23,16 @@ type EmailsListResponse struct {
 	Items  []repository.EmailEntity `json:"items"`
 }
 
-
 type ParserController struct {
-	parser service.Parser
-	repo   repository.EmailRepository
-	log    *logrus.Entry
+	parser       service.Parser
+	repo         repository.EmailRepository
+	ai           *service.Client
+	log          *logrus.Entry
+	langDetector lang.Detector
 }
 
-func NewParserController(p service.Parser, r repository.EmailRepository, log *logrus.Entry) *ParserController {
-	return &ParserController{
-		parser: p,
-		repo:   r,
-		log:    log,
-	}
+func NewParserController(parser service.Parser, repo repository.EmailRepository, ai *service.Client, log *logrus.Entry, langDetector lang.Detector) *ParserController {
+	return &ParserController{parser: parser, repo: repo, ai: ai, log: log, langDetector: langDetector}
 }
 
 func (pc *ParserController) reqLogger(c *gin.Context) *logrus.Entry {
@@ -57,7 +55,7 @@ type BatchEmailInput struct {
 	Raw string `json:"raw" example:"From: Alice <alice@example.com>\r\nTo: Bob <bob@example.com>\r\nMessage-ID: <msg-1@example.com>\r\nDate: Wed, 30 Oct 2025 18:00:00 +0000\r\nSubject: Test\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nHello!"`
 }
 
-// BatchItemResult 
+// BatchItemResult
 type BatchItemResult struct {
 	Index      int    `json:"index"`
 	Status     string `json:"status"` // ok|error
@@ -66,7 +64,7 @@ type BatchItemResult struct {
 	DurationMS int64  `json:"duration_ms,omitempty"` // ms
 }
 
-// BatchResponse 
+// BatchResponse
 type BatchResponse struct {
 	Processed int               `json:"processed"`
 	Succeeded int               `json:"succeeded"`
@@ -88,6 +86,7 @@ type BatchResponse struct {
 // @Router       /parse/batch [post]
 func (pc *ParserController) BatchParseAndSave(c *gin.Context) {
 	log := pc.reqLogger(c).WithField("handler", "BatchParseAndSave")
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 100<<20) // 50 MB limit
 
 	var inputs []BatchEmailInput
 	if err := c.ShouldBindJSON(&inputs); err != nil {
@@ -119,6 +118,8 @@ func (pc *ParserController) BatchParseAndSave(c *gin.Context) {
 		"max_workers":  maxWorkers,
 		"item_timeout": itemTimeout.String(),
 	})
+
+	batchStart := time.Now()
 	log.Info("batch started")
 
 	type job struct {
@@ -134,9 +135,9 @@ func (pc *ParserController) BatchParseAndSave(c *gin.Context) {
 		for j := range jobs {
 			start := time.Now()
 			ictx, cancel := context.WithTimeout(ctx, itemTimeout)
-			ent, err := pc.parser.Parse(ictx, []byte(j.raw)) 
+			ent, err := pc.parser.Parse(ictx, []byte(j.raw))
 			if err == nil {
-				err = pc.repo.SaveEmail(ictx, ent) 
+				err = pc.repo.SaveEmail(ictx, ent)
 			}
 			cancel()
 
@@ -186,7 +187,7 @@ func (pc *ParserController) BatchParseAndSave(c *gin.Context) {
 	log.WithFields(logrus.Fields{
 		"succeeded": ok,
 		"failed":    fail,
-		"dur_ms":    time.Since(c.GetTime("start")).Milliseconds(),
+		"dur_ms":    time.Since(batchStart).Milliseconds(),
 	}).Info("batch finished")
 
 	c.JSON(http.StatusOK, BatchResponse{
@@ -225,9 +226,45 @@ func (pc *ParserController) ParseAndSave(c *gin.Context) {
 		return
 	}
 
+	// Detect language first
+	var ok bool
+	ent.Language, ent.Confidence, ok = pc.langDetector.Detect(ent.Text)
+	if !ok {
+		log.WithError(err).Error("failed to detect language")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "language detection failed"})
+		return
+	}
+
+	if pc.ai != nil {
+		sumCtx, cancelSum := context.WithTimeout(context.Background(), 30*time.Second)
+		sumStr, sumErr := pc.ai.Summarize(sumCtx, ent.Text, ent.Language)
+		cancelSum()
+		if sumErr != nil || sumStr == "" {
+			log.WithError(sumErr).WithField("language", ent.Language).Error("mandatory summarization failed")
+			c.JSON(http.StatusGatewayTimeout, gin.H{"error": "summarization failed"})
+			return
+		}
+		ent.Summary = &sumStr
+
+		usedModel := pc.ai.GetModelForLanguage(ent.Language)
+		ent.AISumModel = &usedModel
+
+		priCtx, cancelPri := context.WithTimeout(context.Background(), 15*time.Second)
+		if lbl, sc, err := pc.ai.DetectPriority(priCtx, ent.Text); err == nil && lbl != "" {
+			ent.Priority = &lbl
+			ent.PriorityScore = &sc
+			clsM := pc.ai.ClsModel()
+			ent.AIClsModel = &clsM
+		} else if err != nil {
+			log.WithError(err).Warn("priority detect failed")
+		}
+		cancelPri()
+		now := time.Now().UTC()
+		ent.AIUpdatedAt = &now
+	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
-
 	if err := pc.repo.SaveEmail(ctx, ent); err != nil {
 		log.WithError(err).
 			WithField("message_id", ent.MessageID).
@@ -236,14 +273,7 @@ func (pc *ParserController) ParseAndSave(c *gin.Context) {
 		return
 	}
 
-	saved, err := pc.repo.GetByID(ctx, ent.ID)
-	if err != nil {
-		log.WithError(err).Warn("saved but failed to re-fetch entity by ID; returning parsed entity")
-		c.JSON(http.StatusCreated, ent)
-		return
-	}
-
-	c.JSON(http.StatusCreated, saved)
+	c.JSON(http.StatusCreated, gin.H{"id": ent.ID, "status": "created"})
 }
 
 // GetByID
@@ -265,7 +295,7 @@ func (pc *ParserController) GetByID(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	ent, err := pc.repo.GetByID(ctx, id)
@@ -307,7 +337,7 @@ func (pc *ParserController) GetAll(c *gin.Context) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	items, err := pc.repo.GetAll(ctx, limit, offset)

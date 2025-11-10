@@ -44,7 +44,6 @@ func (p *EnmimeParser) Parse(_ context.Context, raw []byte) (*repository.EmailEn
 		return nil, err
 	}
 
-
 	headers := make(map[string]string, 32)
 	if env.Root != nil {
 		for k, vals := range env.Root.Header {
@@ -91,6 +90,9 @@ func (p *EnmimeParser) Parse(_ context.Context, raw []byte) (*repository.EmailEn
 				}
 			}
 		}
+	}
+	if toList == nil {
+		toList = []string{}
 	}
 
 	// Date

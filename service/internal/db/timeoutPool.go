@@ -1,12 +1,12 @@
 package db
 
 import (
-    "context"
-    "time"
+	"context"
+	"time"
 
-    "github.com/jackc/pgx/v5"
-    "github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Pinger interface {
@@ -14,31 +14,30 @@ type Pinger interface {
 }
 
 type TimeoutPool struct {
-    *pgxpool.Pool
-    QueryTimeout time.Duration
+	*pgxpool.Pool
+	QueryTimeout time.Duration
 }
 
 func (tp *TimeoutPool) Ping(ctx context.Context) error {
-    ctx, cancel := context.WithTimeout(ctx, tp.QueryTimeout)
-    defer cancel()
-    return tp.Pool.Ping(ctx)
+	ctx, cancel := context.WithTimeout(ctx, tp.QueryTimeout)
+	defer cancel()
+	return tp.Pool.Ping(ctx)
 }
 
-
 func (p *TimeoutPool) Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error) {
-    ctx, cancel := context.WithTimeout(ctx, p.QueryTimeout)
-    defer cancel()
-    return p.Pool.Exec(ctx, sql, args...)
+	ctx, cancel := context.WithTimeout(ctx, p.QueryTimeout)
+	defer cancel()
+	return p.Pool.Exec(ctx, sql, args...)
 }
 
 func (p *TimeoutPool) Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
-    ctx, cancel := context.WithTimeout(ctx, p.QueryTimeout)
-    defer cancel()
-    return p.Pool.Query(ctx, sql, args...)
+	// НЕ используем WithTimeout для Query, так как rows читаются после возврата
+	// Если нужен таймаут, он должен быть установлен на уровне выше (в контроллере)
+	return p.Pool.Query(ctx, sql, args...)
 }
 
 func (p *TimeoutPool) QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row {
-    ctx, cancel := context.WithTimeout(ctx, p.QueryTimeout)
-    defer cancel()
-    return p.Pool.QueryRow(ctx, sql, args...)
+	ctx, cancel := context.WithTimeout(ctx, p.QueryTimeout)
+	defer cancel()
+	return p.Pool.QueryRow(ctx, sql, args...)
 }

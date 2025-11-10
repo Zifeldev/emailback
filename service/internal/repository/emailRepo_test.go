@@ -51,8 +51,8 @@ func TestPostgresEmailRepo_SaveEmail_Args(t *testing.T) {
 	if err := repo.SaveEmail(context.Background(), e); err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	if len(mp.execArgs) != 14 {
-		t.Fatalf("expected 14 args, got %d", len(mp.execArgs))
+	if len(mp.execArgs) != 20 {
+		t.Fatalf("expected 20 args, got %d", len(mp.execArgs))
 	}
 	if mp.execArgs[0] != "id1" || mp.execArgs[1] != "m1" || mp.execArgs[2] != "a" {
 		t.Fatalf("unexpected args prefix: %v", mp.execArgs[:3])

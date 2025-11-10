@@ -63,13 +63,14 @@ func main() {
 	var emailRepo repository.EmailRepository = repository.NewPostgresEmailRepo(timeoutPool)
 
 	var rdb *redis.Client
+
 	if cfg.Redis.Enabled {
 		rdb = redis.NewClient(&redis.Options{
 			Addr:     cfg.Redis.Addr,
 			Password: cfg.Redis.Password,
 			DB:       cfg.Redis.DB,
 		})
-		// Best-effort ping on startup
+
 		pingCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		if err := rdb.Ping(pingCtx).Err(); err != nil {
 			baseEntry.WithError(err).Warn("redis ping failed; proceeding without cache")
@@ -81,7 +82,7 @@ func main() {
 	}
 
 	emailParser := service.NewEnmimeParser(service.Options{
-		HTMLToTextLimit: 1 << 20,
+		HTMLToTextLimit: 1 << 20, // 1 MB
 		IncludeHTML:     false,
 	}, ld)
 
@@ -90,6 +91,9 @@ func main() {
 		"req_timeout":      cfg.HTTP.RequestTimeout.String(),
 		"shutdown_timeout": cfg.HTTP.ShutdownTimeout.String(),
 		"db_query_timeout": cfg.Database.QueryTimeout.String(),
+		"rate_enabled":     cfg.RateLimit.Enabled,
+		"rate_interval":    cfg.RateLimit.Interval,
+		"rate_max":         cfg.RateLimit.Max,
 	}).Info("config loaded")
 
 	r := gin.New()
@@ -99,6 +103,7 @@ func main() {
 	r.Use(middleware.RecoveryMiddleware(log))
 	r.Use(middleware.TraceMiddleware(log))
 	r.Use(middleware.LoggerMiddleware(log))
+	r.Use(middleware.CORS())
 
 	reqTimeout := cfg.HTTP.RequestTimeout
 	if reqTimeout <= 0 {
@@ -111,15 +116,37 @@ func main() {
 	// Swagger UI
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	pc := controllers.NewParserController(emailParser, emailRepo, baseEntry)
+	// AI client (optional)
+	var aiClient *service.Client
+	if cfg.AI.Enabled && cfg.AI.HFToken != "" {
+		sumModels, err := cfg.AI.ParseSumModels()
+		if err != nil {
+			baseEntry.WithError(err).Fatal("failed to parse AI summarization models")
+		}
+
+		aiClient = service.NewAIClient(cfg.AI.HFToken, sumModels, cfg.AI.ClassificationModel, cfg.AI.Timeout)
+
+		baseEntry.WithFields(logrus.Fields{
+			"ai_sum_models": sumModels,
+			"ai_cls_model":  cfg.AI.ClassificationModel,
+			"hf_base":       aiClient.Base(),
+		}).Info("AI client initialized")
+	} else {
+		baseEntry.Info("AI disabled or token missing; skipping AI client init")
+	}
+
+	pc := controllers.NewParserController(emailParser, emailRepo, aiClient, baseEntry,ld)
 	hc := controllers.NewHealthController(timeoutPool, rdb, baseEntry, time.Now(), "1.0.0")
 
 	r.GET("/health", middleware.TimeoutMiddleware(2*time.Second), hc.Handle)
 
-	r.POST("/parse", pc.ParseAndSave)
-	r.POST("/parse/batch", pc.BatchParseAndSave)
-	r.GET("/emails/:id", pc.GetByID)
-	r.GET("/emails", pc.GetAll)
+	limited := r.Group("/")
+	limited.Use(middleware.RateLimitMiddleware(cfg.RateLimit, log, rdb))
+
+	limited.POST("/parse", pc.ParseAndSave)
+	limited.POST("/parse/batch", pc.BatchParseAndSave)
+	limited.GET("/emails/:id", pc.GetByID)
+	limited.GET("/emails", pc.GetAll)
 
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(404, gin.H{"message": "Not Found"})
@@ -136,6 +163,10 @@ func main() {
 
 	srv.RegisterOnShutdown(func() {
 		baseEntry.Info("closing database connection pool")
+		if rdb != nil {
+			baseEntry.Info("closing redis client")
+			_ = rdb.Close()
+		}
 	})
 
 	go func() {

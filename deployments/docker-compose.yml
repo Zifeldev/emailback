@@ -1,5 +1,3 @@
-version: "3.9"
-
 name: emailback
 
 networks:
@@ -18,14 +16,14 @@ services:
     volumes:
       - ../db/migrations:/migrations:ro
     environment:
-      DB_USER: ${DB_USER:-emailback}
-      DB_PASSWORD: ${DB_PASSWORD:-changeme}
-      DB_NAME: ${DB_NAME:-emailback}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
     command:
       - "-path"
       - "/migrations"
       - "-database"
-      - "postgres://${DB_USER:-emailback}:${DB_PASSWORD:-changeme}@postgres:5432/${DB_NAME:-emailback}?sslmode=disable"
+      - "postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable"
       - "-verbose"
       - "up"
     restart: "no"
@@ -33,9 +31,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${DB_NAME:-emailback}
-      POSTGRES_USER: ${DB_USER:-emailback}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks: [data]
@@ -59,18 +57,24 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: emailback:latest
+    image: emailback:local
     env_file:
-      - ../.env
+      - .env
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_USER: ${DB_USER:-emailback}
-      DB_PASSWORD: ${DB_PASSWORD:-changeme}
-      DB_NAME: ${DB_NAME:-emailback}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
       REDIS_ADDR: redis:6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: ${REDIS_DB}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT}
+      AI_ENABLED: ${AI_ENABLED}
+      AI_TIMEOUT: ${AI_TIMEOUT}
+      AI_SUM_MODELS: ${AI_SUM_MODELS}
+      AI_CLS_MODEL: ${AI_CLS_MODEL}
+      HF_TOKEN: ${HF_TOKEN}
     depends_on:
       migrate:
         condition: service_completed_successfully
