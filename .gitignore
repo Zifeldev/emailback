@@ -36,3 +36,10 @@ Thumbs.db
 dist/
 build/
 bin/
+
+# Compiled binaries
+service/Auth/main
+service/EmailParse/main
+main
+auth-service
+email-service
