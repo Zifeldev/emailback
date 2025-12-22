@@ -90,3 +90,20 @@ func (c *CacheEmailRepo) GetAll(ctx context.Context, limit, offset int) ([]*Emai
 	}
 	return list, nil
 }
+
+// GetByUserID возвращает письма пользователя. Кеширование списков по пользователю
+// опущено для простоты — делегируем вызов базовому репозиторию.
+func (c *CacheEmailRepo) GetByUserID(ctx context.Context, userID string, limit, offset int) ([]*EmailEntity, error) {
+	return c.underlying.GetByUserID(ctx, userID, limit, offset)
+}
+
+// UpdateAIFields updates AI-generated fields and invalidates cache for the email id.
+func (c *CacheEmailRepo) UpdateAIFields(ctx context.Context, id string, summary *string, aiSumModel *string, priority *string, priorityScore *float64, aiClsModel *string, aiUpdatedAt *time.Time) error {
+	if err := c.underlying.UpdateAIFields(ctx, id, summary, aiSumModel, priority, priorityScore, aiClsModel, aiUpdatedAt); err != nil {
+		return err
+	}
+	if c.rdb != nil {
+		_ = c.rdb.Del(ctx, c.cacheKeyByID(id)).Err()
+	}
+	return nil
+}

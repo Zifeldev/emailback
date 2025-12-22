@@ -32,7 +32,7 @@ func (errParser) Parse(_ context.Context, _ []byte) (*repository.EmailEntity, er
 
 func TestBatchParseAndSave_SuccessAndError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	pc := NewParserController(okParser{}, newMemRepo(), nil, logrus.New().WithField("t", "test"), mockLangDetector{})
+	pc := NewParserController(okParser{}, newMemRepo(), nil, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
 	r := gin.New()
 	r.POST("/parse/batch", pc.BatchParseAndSave)
 
@@ -49,7 +49,7 @@ func TestBatchParseAndSave_SuccessAndError(t *testing.T) {
 
 func TestBatchParseAndSave_ParseErrors(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	pc := NewParserController(errParser{}, newMemRepo(), nil, logrus.New().WithField("t", "test"), mockLangDetector{})
+	pc := NewParserController(errParser{}, newMemRepo(), nil, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
 	r := gin.New()
 	r.POST("/parse/batch", pc.BatchParseAndSave)
 

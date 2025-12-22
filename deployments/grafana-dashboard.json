@@ -1,0 +1,74 @@
+{
+  "annotations": {"list": []},
+  "panels": [
+    {
+      "type": "stat",
+      "title": "AI jobs processed (total)",
+      "targets": [{"expr": "sum(emailback_emails_processed_total)", "refId": "A"}],
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 3}
+    },
+    {
+      "type": "stat",
+      "title": "AI jobs failed (total)",
+      "targets": [{"expr": "sum(emailback_emails_failed_total)", "refId": "A"}],
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 3}
+    },
+    {
+      "type": "stat",
+      "title": "AI job retries (total)",
+      "targets": [{"expr": "vector(0)", "refId": "A"}],
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 3}
+    },
+    {
+      "type": "graph",
+      "title": "Processed / min",
+      "targets": [{"expr": "round(sum(rate(emailback_emails_processed_total[1m])) * 60, 0)", "refId": "A"}],
+      "gridPos": {"x": 0, "y": 3, "w": 12, "h": 6}
+    },
+    {
+      "type": "graph",
+      "title": "Failures / min",
+      "targets": [{"expr": "round(sum(rate(emailback_emails_failed_total[1m])) * 60, 0)", "refId": "A"}],
+      "gridPos": {"x": 12, "y": 3, "w": 12, "h": 6}
+    },
+    {
+      "type": "graph",
+      "title": "AI job retries / min",
+      "targets": [{"expr": "vector(0)", "refId": "A"}],
+      "gridPos": {"x": 0, "y": 9, "w": 12, "h": 6}
+    },
+    {
+      "type": "graph",
+      "title": "AI job duration (histogram)",
+      "targets": [
+        {"expr": "histogram_quantile(0.5, sum(rate(emailback_email_processing_seconds_bucket[5m])) by (le))", "refId": "P50"},
+        {"expr": "histogram_quantile(0.95, sum(rate(emailback_email_processing_seconds_bucket[5m])) by (le))", "refId": "P95"}
+      ],
+      "gridPos": {"x": 12, "y": 9, "w": 12, "h": 6}
+    },
+    {
+      "type": "graph",
+      "title": "AI job duration (distribution)",
+      "targets": [{"expr": "sum(rate(emailback_email_processing_seconds_bucket[5m])) by (le)", "refId": "A"}],
+      "gridPos": {"x": 0, "y": 15, "w": 12, "h": 6}
+    },
+    {
+      "type": "stat",
+      "title": "Avg job duration (5m)",
+      "targets": [{"expr": "increase(emailback_email_processing_seconds_sum[5m]) / increase(emailback_email_processing_seconds_count[5m])", "refId": "A"}],
+      "gridPos": {"x": 12, "y": 15, "w": 6, "h": 3}
+    },
+    {
+      "type": "graph",
+      "title": "AI queue length (Redis)",
+      "targets": [
+        {"expr": "redis_list_length{job=\"redis\", list=\"ai:queue\"}", "refId": "A"}
+      ],
+      "gridPos": {"x": 18, "y": 15, "w": 6, "h": 6},
+      "description": "Requires redis_exporter (metric name may vary)."
+    }
+  ],
+  "title": "Emailback AI Worker",
+  "schemaVersion": 16,
+  "version": 1
+}

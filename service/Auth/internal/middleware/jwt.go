@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/Zifeldev/emailback/service/Auth/internal/service"
@@ -47,7 +48,7 @@ func JWTAuth(authService service.AuthService) gin.HandlerFunc {
 		c.Set(ContextUserRole, claims.Role)
 
 		// Set headers for downstream services
-		c.Request.Header.Set(HeaderUserID, string(claims.UserID))
+		c.Request.Header.Set(HeaderUserID, strconv.FormatInt(claims.UserID, 10))
 		c.Request.Header.Set(HeaderUserEmail, claims.Email)
 		c.Request.Header.Set(HeaderUserRole, claims.Role)
 

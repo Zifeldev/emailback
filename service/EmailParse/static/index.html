@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmailBack - API Tester</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 30px; color: #38bdf8; }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: #1e293b;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .tab:hover { background: #334155; }
+        .tab.active { background: #3b82f6; color: white; }
+        .panel { display: none; }
+        .panel.active { display: block; }
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card h3 {
+            margin-bottom: 15px;
+            color: #38bdf8;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .method {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .method.post { background: #22c55e; color: white; }
+        .method.get { background: #3b82f6; color: white; }
+        .method.delete { background: #ef4444; color: white; }
+        .form-group { margin-bottom: 15px; }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 14px;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        textarea { min-height: 150px; font-family: monospace; resize: vertical; }
+        button {
+            padding: 12px 24px;
+            background: #3b82f6;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        button:hover { background: #2563eb; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-danger { background: #ef4444; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-success { background: #22c55e; }
+        .btn-success:hover { background: #16a34a; }
+        .response {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 400px;
+            overflow: auto;
+        }
+        .response pre {
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+        }
+        .status { margin-bottom: 10px; font-weight: bold; }
+        .status.success { color: #22c55e; }
+        .status.error { color: #ef4444; }
+        .token-display {
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin-top: 10px;
+        }
+        .flex { display: flex; gap: 10px; align-items: center; }
+        .flex-wrap { flex-wrap: wrap; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #334155;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        .badge.admin { background: #7c3aed; }
+        .badge.user { background: #0891b2; }
+        .info-box {
+            background: #1e3a5f;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 0 8px 8px 0;
+        }
+        .file-drop {
+            border: 2px dashed #334155;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .file-drop:hover, .file-drop.dragover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+        .file-drop input { display: none; }
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #334155;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .health-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .health-indicator.healthy { background: #22c55e; }
+        .health-indicator.unhealthy { background: #ef4444; }
+        .health-indicator.unknown { background: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 EmailBack API Tester</h1>
+
+        <div class="info-box">
+            <div class="flex" style="justify-content: space-between;">
+                <div>
+                    <strong>Auth Service:</strong> <span id="authHealth" class="health-indicator unknown"></span>
+                    <span id="authUrl">http://localhost:8081</span>
+                </div>
+                <div>
+                    <strong>Email Service:</strong> <span id="emailHealth" class="health-indicator unknown"></span>
+                    <span id="emailUrl">http://localhost:8080</span>
+                </div>
+                <button onclick="checkHealth()" style="padding: 8px 16px;">🔄 Check</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('auth')">🔐 Авторизация</button>
+            <button class="tab" onclick="showTab('parse')">📨 Парсинг Email</button>
+            <button class="tab" onclick="showTab('emails')">📋 Список Emails</button>
+            <button class="tab" onclick="showTab('settings')">⚙️ Настройки</button>
+        </div>
+
+        <!-- Auth Panel -->
+        <div id="auth" class="panel active">
+            <div class="grid">
+                <div class="card">
+                    <h3><span class="method post">POST</span> Вход</h3>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="loginEmail" value="admin@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Пароль</label>
+                        <input type="password" id="loginPassword" value="Admin123!">
+                    </div>
+                    <button onclick="login()">Войти</button>
+                    <div id="loginResponse" class="response" style="display:none;"></div>
+                </div>
+
+                <div class="card">
+                    <h3><span class="method post">POST</span> Регистрация</h3>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="regEmail" placeholder="user@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Пароль (мин. 8 символов)</label>
+                        <input type="password" id="regPassword" placeholder="••••••••">
+                    </div>
+                    <button onclick="register()">Зарегистрироваться</button>
+                    <div id="regResponse" class="response" style="display:none;"></div>
+                </div>
+
+                <div class="card">
+                    <h3>🎫 Текущий токен</h3>
+                    <div id="currentToken">
+                        <p style="color: #94a3b8;">Не авторизован</p>
+                    </div>
+                    <div class="flex" style="margin-top: 15px;">
+                        <button onclick="refreshToken()" class="btn-success">🔄 Обновить</button>
+                        <button onclick="logout()" class="btn-danger">🚪 Выйти</button>
+                    </div>
+                    <div id="tokenResponse" class="response" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Parse Panel -->
+        <div id="parse" class="panel">
+            <div class="card">
+                <h3><span class="method post">POST</span> Парсинг Email (RAW)</h3>
+                <div class="form-group">
+                    <label>Вставьте RAW email (с заголовками)</label>
+                    <textarea id="rawEmail" placeholder="From: sender@example.com
+To: recipient@example.com
+Subject: Test Email
+Date: Thu, 05 Dec 2025 12:00:00 +0000
+Content-Type: text/plain; charset=utf-8
+
+Hello, this is a test email body."></textarea>
+                </div>
+                <div class="flex">
+                    <button onclick="parseEmail()">📤 Парсить и сохранить</button>
+                    <label style="color: #94a3b8; font-size: 12px;">
+                        <input type="checkbox" id="withAI"> С AI анализом (медленнее)
+                    </label>
+                </div>
+                <div id="parseResponse" class="response" style="display:none;"></div>
+            </div>
+
+            <div class="card">
+                <h3><span class="method post">POST</span> Загрузить .eml файл</h3>
+                <div class="file-drop" id="fileDrop">
+                    <input type="file" id="emlFile" accept=".eml,.txt">
+                    <p>📁 Перетащите .eml файл сюда или кликните для выбора</p>
+                </div>
+                <div id="fileParseResponse" class="response" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- Emails Panel -->
+        <div id="emails" class="panel">
+            <div class="card">
+                <h3><span class="method get">GET</span> Список сохранённых Email</h3>
+                <div class="flex flex-wrap" style="margin-bottom: 15px;">
+                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                        <label>Лимит</label>
+                        <input type="number" id="emailLimit" value="20" min="1" max="100">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                        <label>Offset</label>
+                        <input type="number" id="emailOffset" value="0" min="0">
+                    </div>
+                    <div class="form-group" style="flex: 2; min-width: 200px;">
+                        <label>Поиск (subject/from)</label>
+                        <input type="text" id="emailSearch" placeholder="Поиск...">
+                    </div>
+                </div>
+                <button onclick="getEmails()">🔍 Загрузить</button>
+                <div id="emailsResponse" class="response" style="display:none;"></div>
+            </div>
+
+            <div class="card">
+                <h3><span class="method get">GET</span> Мои письма (только для авторизованных)</h3>
+                <div class="flex" style="margin-bottom: 10px;">
+                    <div style="flex:1; min-width:150px;">
+                        <label>Лимит</label>
+                        <input type="number" id="myEmailLimit" value="20" min="1" max="100">
+                    </div>
+                    <div style="flex:1; min-width:150px;">
+                        <label>Offset</label>
+                        <input type="number" id="myEmailOffset" value="0" min="0">
+                    </div>
+                    <div style="flex:2; min-width:200px;">
+                        <label>Поиск (subject/from)</label>
+                        <input type="text" id="myEmailSearch" placeholder="Поиск...">
+                    </div>
+                </div>
+                <div class="flex" style="gap:10px;">
+                    <button onclick="getMyEmails()">🔐 Мои письма</button>
+                    <button onclick="copyToken()" class="btn-success">📋 Копировать токен</button>
+                </div>
+                <div id="myEmailsResponse" class="response" style="display:none; margin-top:12px;"></div>
+            </div>
+
+            <div class="card">
+                <h3><span class="method get">GET</span> Email по ID</h3>
+                <div class="flex">
+                    <input type="text" id="emailId" placeholder="UUID email" style="flex: 1;">
+                    <button onclick="getEmailById()">Получить</button>
+                </div>
+                <div id="emailByIdResponse" class="response" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div id="settings" class="panel">
+            <div class="card">
+                <h3>⚙️ Настройки API</h3>
+                <div class="form-group">
+                    <label>Auth Service URL</label>
+                    <input type="text" id="settingsAuthUrl" value="http://localhost:8081">
+                </div>
+                <div class="form-group">
+                    <label>Email Service URL</label>
+                    <input type="text" id="settingsEmailUrl" value="http://localhost:8080">
+                </div>
+                <button onclick="saveSettings()">💾 Сохранить</button>
+            </div>
+
+            <div class="card">
+                <h3>📖 API Документация</h3>
+                <div class="flex" style="gap: 20px;">
+                    <a href="/swagger/index.html" target="_blank" style="color: #3b82f6;">
+                        📘 Email Service Swagger
+                    </a>
+                    <a href="http://localhost:8081/swagger/index.html" target="_blank" style="color: #3b82f6;">
+                        📗 Auth Service Swagger
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let authUrl = localStorage.getItem('authUrl') || 'http://localhost:8081';
+        let emailUrl = localStorage.getItem('emailUrl') || 'http://localhost:8080';
+        let accessToken = localStorage.getItem('accessToken') || '';
+        let refreshTokenValue = localStorage.getItem('refreshToken') || '';
+
+        // Init
+        document.getElementById('settingsAuthUrl').value = authUrl;
+        document.getElementById('settingsEmailUrl').value = emailUrl;
+        updateTokenDisplay();
+        checkHealth();
+
+        // Tabs
+        function showTab(tabId) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Settings
+        function saveSettings() {
+            authUrl = document.getElementById('settingsAuthUrl').value;
+            emailUrl = document.getElementById('settingsEmailUrl').value;
+            localStorage.setItem('authUrl', authUrl);
+            localStorage.setItem('emailUrl', emailUrl);
+            document.getElementById('authUrl').textContent = authUrl;
+            document.getElementById('emailUrl').textContent = emailUrl;
+            alert('Настройки сохранены!');
+            checkHealth();
+        }
+
+        // Health check
+        async function checkHealth() {
+            const authIndicator = document.getElementById('authHealth');
+            const emailIndicator = document.getElementById('emailHealth');
+            
+            try {
+                const authRes = await fetch(`${authUrl}/health`, { method: 'GET' });
+                authIndicator.className = 'health-indicator ' + (authRes.ok ? 'healthy' : 'unhealthy');
+            } catch {
+                authIndicator.className = 'health-indicator unhealthy';
+            }
+
+            try {
+                const emailRes = await fetch(`${emailUrl}/health`, { method: 'GET' });
+                emailIndicator.className = 'health-indicator ' + (emailRes.ok ? 'healthy' : 'unhealthy');
+            } catch {
+                emailIndicator.className = 'health-indicator unhealthy';
+            }
+        }
+
+        // Token display
+        function updateTokenDisplay() {
+            const container = document.getElementById('currentToken');
+            if (accessToken) {
+                try {
+                    const payload = JSON.parse(atob(accessToken.split('.')[1]));
+                    const exp = new Date(payload.exp * 1000);
+                    const isExpired = exp < new Date();
+                    container.innerHTML = `
+                        <div class="flex" style="margin-bottom: 10px;">
+                            <span class="badge ${payload.role}">${payload.role}</span>
+                            <span>${payload.email}</span>
+                        </div>
+                        <div style="color: ${isExpired ? '#ef4444' : '#22c55e'}; font-size: 12px;">
+                            ${isExpired ? '⚠️ Истёк' : '✅ Действителен'} до ${exp.toLocaleString()}
+                        </div>
+                        <div class="token-display">${accessToken.substring(0, 50)}...</div>
+                    `;
+                } catch {
+                    container.innerHTML = '<p style="color: #ef4444;">Невалидный токен</p>';
+                }
+            } else {
+                container.innerHTML = '<p style="color: #94a3b8;">Не авторизован</p>';
+            }
+        }
+
+        // API helpers
+        function showResponse(elementId, status, data) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            const isError = status >= 400;
+            el.innerHTML = `
+                <div class="status ${isError ? 'error' : 'success'}">
+                    ${isError ? '❌' : '✅'} Status: ${status}
+                </div>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        }
+
+        async function apiCall(url, options = {}) {
+            if (accessToken && !url.includes('/auth/')) {
+                options.headers = {
+                    ...options.headers,
+                    'Authorization': `Bearer ${accessToken}`
+                };
+            }
+            const response = await fetch(url, options);
+            const data = await response.json().catch(() => ({}));
+            return { status: response.status, data };
+        }
+
+        // Auth functions
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            const { status, data } = await apiCall(`${authUrl}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            showResponse('loginResponse', status, data);
+
+            if (status === 200 && data.access_token) {
+                accessToken = data.access_token;
+                refreshTokenValue = data.refresh_token;
+                localStorage.setItem('accessToken', accessToken);
+                localStorage.setItem('refreshToken', refreshTokenValue);
+                updateTokenDisplay();
+            }
+        }
+
+        async function register() {
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            
+            const { status, data } = await apiCall(`${authUrl}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            showResponse('regResponse', status, data);
+        }
+
+        async function refreshToken() {
+            if (!refreshTokenValue) {
+                alert('Нет refresh токена');
+                return;
+            }
+
+            const { status, data } = await apiCall(`${authUrl}/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh_token: refreshTokenValue })
+            });
+
+            showResponse('tokenResponse', status, data);
+
+            if (status === 200 && data.access_token) {
+                accessToken = data.access_token;
+                refreshTokenValue = data.refresh_token;
+                localStorage.setItem('accessToken', accessToken);
+                localStorage.setItem('refreshToken', refreshTokenValue);
+                updateTokenDisplay();
+            }
+        }
+
+        async function logout() {
+            if (accessToken) {
+                await apiCall(`${authUrl}/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+            accessToken = '';
+            refreshTokenValue = '';
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            updateTokenDisplay();
+        }
+
+        // Email parsing
+        async function parseEmail() {
+            const rawEmail = document.getElementById('rawEmail').value;
+            if (!rawEmail.trim()) {
+                alert('Введите содержимое email');
+                return;
+            }
+
+            const { status, data } = await apiCall(`${emailUrl}/parse`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: rawEmail
+            });
+
+            showResponse('parseResponse', status, data);
+        }
+
+        // File upload
+        const fileDrop = document.getElementById('fileDrop');
+        const fileInput = document.getElementById('emlFile');
+
+        fileDrop.addEventListener('click', () => fileInput.click());
+        fileDrop.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileDrop.classList.add('dragover');
+        });
+        fileDrop.addEventListener('dragleave', () => fileDrop.classList.remove('dragover'));
+        fileDrop.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            fileDrop.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) await uploadFile(file);
+        });
+        fileInput.addEventListener('change', async (e) => {
+            if (e.target.files[0]) await uploadFile(e.target.files[0]);
+        });
+
+        async function uploadFile(file) {
+            const text = await file.text();
+            const { status, data } = await apiCall(`${emailUrl}/parse`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: text
+            });
+            showResponse('fileParseResponse', status, data);
+        }
+
+        // Get emails
+        async function getEmails() {
+            const limit = document.getElementById('emailLimit').value;
+            const offset = document.getElementById('emailOffset').value;
+            const search = document.getElementById('emailSearch').value;
+            
+            let url = `${emailUrl}/emails?limit=${limit}&offset=${offset}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+
+            const { status, data } = await apiCall(url);
+            showResponse('emailsResponse', status, data);
+        }
+
+        async function getEmailById() {
+            const id = document.getElementById('emailId').value;
+            if (!id) {
+                alert('Введите ID email');
+                return;
+            }
+
+            const { status, data } = await apiCall(`${emailUrl}/emails/${id}`);
+            showResponse('emailByIdResponse', status, data);
+        }
+
+        // Get my emails (uses Authorization header from accessToken)
+        async function getMyEmails() {
+            if (!accessToken) {
+                alert('Требуется авторизация: выполните вход в разделе Авторизация');
+                return;
+            }
+            const limit = document.getElementById('myEmailLimit').value;
+            const offset = document.getElementById('myEmailOffset').value;
+            const search = document.getElementById('myEmailSearch').value;
+            let url = `${emailUrl}/my/emails?limit=${limit}&offset=${offset}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+
+            const { status, data } = await apiCall(url);
+            showResponse('myEmailsResponse', status, data);
+        }
+
+        function copyToken() {
+            if (!accessToken) {
+                alert('Нет токена для копирования');
+                return;
+            }
+            navigator.clipboard.writeText(accessToken).then(() => alert('Токен скопирован в буфер обмена'));
+        }
+    </script>
+</body>
+</html>

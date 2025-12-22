@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// JWT Claims structure
+// JWT Claims structure - matches Auth service claims
 type JWTClaims struct {
 	UserID int64  `json:"user_id"`
 	Email  string `json:"email"`

@@ -113,6 +113,11 @@ func main() {
 	}
 	r.Use(middleware.TimeoutMiddleware(reqTimeout))
 
+	// Static files - Web UI for testing
+	r.StaticFile("/", "./static/index.html")
+	r.StaticFile("/index.html", "./static/index.html")
+	r.Static("/static", "./static")
+
 	// Swagger UI
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -135,35 +140,28 @@ func main() {
 		baseEntry.Info("AI disabled or token missing; skipping AI client init")
 	}
 
-	pc := controllers.NewParserController(emailParser, emailRepo, aiClient, baseEntry, ld)
+	pc := controllers.NewParserController(emailParser, emailRepo, aiClient, rdb, baseEntry, ld)
 	hc := controllers.NewHealthController(timeoutPool, rdb, baseEntry, time.Now(), "1.0.0")
-
-	// JWT Middleware
-	jwtMiddleware := middleware.NewJWTMiddleware(cfg.JWT.AccessSecret, baseEntry)
 
 	r.GET("/health", middleware.TimeoutMiddleware(2*time.Second), hc.Handle)
 
-	// API routes (protected with JWT)
-	api := r.Group("/api")
-	api.Use(jwtMiddleware.Authenticate())
-	api.Use(middleware.RateLimitMiddleware(cfg.RateLimit, log, rdb))
-	{
-		api.POST("/parse", pc.ParseAndSave)
-		api.POST("/parse/batch", pc.BatchParseAndSave)
-		api.GET("/emails/:id", pc.GetByID)
-		api.GET("/emails", pc.GetAll)
+	limited := r.Group("/")
+	limited.Use(middleware.RateLimitMiddleware(cfg.RateLimit, log, rdb))
+
+	// JWT middleware для защиты API endpoints
+	if cfg.JWT.Enabled {
+		jwtMw := middleware.NewJWTMiddleware(cfg.JWT.AccessSecret, baseEntry)
+		limited.Use(jwtMw.Authenticate())
+		baseEntry.Info("JWT authentication enabled for API routes")
+	} else {
+		baseEntry.Warn("JWT authentication disabled - API routes are unprotected")
 	}
 
-	// Admin routes (protected with JWT + admin role)
-	admin := r.Group("/admin")
-	admin.Use(jwtMiddleware.Authenticate())
-	admin.Use(jwtMiddleware.RequireRole("admin"))
-	admin.Use(middleware.RateLimitMiddleware(cfg.RateLimit, log, rdb))
-	{
-		// В будущем можно добавить админские функции, например:
-		// admin.DELETE("/emails/:id", pc.DeleteEmail)
-		// admin.PUT("/emails/:id", pc.UpdateEmail)
-	}
+	limited.POST("/parse", pc.ParseAndSave)
+	limited.POST("/parse/batch", pc.BatchParseAndSave)
+	limited.GET("/emails/:id", pc.GetByID)
+	limited.GET("/emails", pc.GetAll)
+	limited.GET("/my/emails", pc.GetMyEmails)
 
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(404, gin.H{"message": "Not Found"})

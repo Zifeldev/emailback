@@ -14,7 +14,7 @@ services:
         condition: service_healthy
     networks: [data]
     volumes:
-      - ../../db/auth_migrations:/migrations:ro
+      - ../db/auth_migrations:/migrations:ro
     environment:
       DB_USER: ${AUTH_DB_USER}
       DB_PASSWORD: ${AUTH_DB_PASSWORD}
@@ -22,6 +22,7 @@ services:
     command:
       - "-path"
       - "/migrations"
+      - "-database"
       - "postgres://${AUTH_DB_USER}:${AUTH_DB_PASSWORD}@auth-postgres:5432/${AUTH_DB_NAME}?sslmode=disable"
       - "-verbose"
       - "up"
@@ -58,8 +59,8 @@ services:
 
   auth-service:
     build:
-      context: ../..
-      dockerfile: service/Auth/Dockerfile
+      context: ../service/Auth
+      dockerfile: Dockerfile
     image: auth-service:local
     env_file:
       - .env.auth

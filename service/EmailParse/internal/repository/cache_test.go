@@ -34,6 +34,29 @@ func (s *stubRepo) GetAll(ctx context.Context, limit, offset int) ([]*EmailEntit
 	return out, nil
 }
 
+func (s *stubRepo) GetByUserID(ctx context.Context, userID string, limit, offset int) ([]*EmailEntity, error) {
+	// Для тестов возвращаем все письма, игнорируя userID
+	return s.GetAll(ctx, limit, offset)
+}
+
+// UpdateAIFields implements EmailRepository for tests: update fields on in-memory map.
+func (s *stubRepo) UpdateAIFields(ctx context.Context, id string, summary *string, aiSumModel *string, priority *string, priorityScore *float64, aiClsModel *string, aiUpdatedAt *time.Time) error {
+	if s.saved == nil {
+		return ErrEmailNotFound
+	}
+	e, ok := s.saved[id]
+	if !ok {
+		return ErrEmailNotFound
+	}
+	e.Summary = summary
+	e.AISumModel = aiSumModel
+	e.Priority = priority
+	e.PriorityScore = priorityScore
+	e.AIClsModel = aiClsModel
+	e.AIUpdatedAt = aiUpdatedAt
+	return nil
+}
+
 func TestCacheEmailRepo_GetByID_CacheAside(t *testing.T) {
 	mr, err := miniredis.Run()
 	if err != nil {

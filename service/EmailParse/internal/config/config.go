@@ -59,6 +59,11 @@ type AIConfig struct {
 	Timeout             time.Duration `env:"AI_TIMEOUT" envDefault:"1m"`
 }
 
+type JWTConfig struct {
+	AccessSecret string
+	Enabled      bool
+}
+
 func (a *AIConfig) ParseSumModels() (map[string]string, error) {
 	defaultModels := map[string]string{
 		"en": "sshleifer/distilbart-cnn-12-6",
@@ -82,10 +87,6 @@ func (a *AIConfig) ParseSumModels() (map[string]string, error) {
 	}
 
 	return models, nil
-}
-
-type JWTConfig struct {
-	AccessSecret string
 }
 
 type Config struct {
@@ -205,8 +206,10 @@ func MustLoad(_ context.Context) Config {
 		Timeout:             getEnvDuration("AI_TIMEOUT", 10*time.Second),
 	}
 
+	jwtSecret := getEnv("JWT_ACCESS_SECRET", "")
 	cfg.JWT = JWTConfig{
-		AccessSecret: getEnv("JWT_ACCESS_SECRET", ""),
+		AccessSecret: jwtSecret,
+		Enabled:      jwtSecret != "",
 	}
 
 	if cfg.RateLimit.Interval <= 0 || cfg.RateLimit.Max <= 0 {

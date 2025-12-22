@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'app'
+    static_configs:
+      - targets: ['app:8080']
+
+  - job_name: 'aiworker'
+    static_configs:
+      - targets: ['aiworker:8080']

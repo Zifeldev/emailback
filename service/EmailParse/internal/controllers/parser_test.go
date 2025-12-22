@@ -47,6 +47,20 @@ func (m *memRepo) GetByID(ctx context.Context, id string) (*repository.EmailEnti
 	}
 	return nil, repository.ErrEmailNotFound
 }
+
+// UpdateAIFields implements EmailRepository for test memRepo
+func (m *memRepo) UpdateAIFields(ctx context.Context, id string, summary *string, aiSumModel *string, priority *string, priorityScore *float64, aiClsModel *string, aiUpdatedAt *time.Time) error {
+	if v, ok := m.byID[id]; ok {
+		v.Summary = summary
+		v.AISumModel = aiSumModel
+		v.Priority = priority
+		v.PriorityScore = priorityScore
+		v.AIClsModel = aiClsModel
+		v.AIUpdatedAt = aiUpdatedAt
+		return nil
+	}
+	return repository.ErrEmailNotFound
+}
 func (m *memRepo) GetAll(ctx context.Context, limit, offset int) ([]*repository.EmailEntity, error) {
 	out := make([]*repository.EmailEntity, 0, len(m.byID))
 	for _, v := range m.byID {
@@ -62,6 +76,11 @@ func (m *memRepo) GetAll(ctx context.Context, limit, offset int) ([]*repository.
 	return out[offset:end], nil
 }
 
+func (m *memRepo) GetByUserID(ctx context.Context, userID string, limit, offset int) ([]*repository.EmailEntity, error) {
+	// тестовая реализация: возвращаем все доступные, игнорируя userID
+	return m.GetAll(ctx, limit, offset)
+}
+
 func setupRouter(pc *ParserController) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -74,7 +93,7 @@ func setupRouter(pc *ParserController) *gin.Engine {
 func TestParserController_ParseAndSave_OK(t *testing.T) {
 	now := time.Now().UTC()
 	ent := &repository.EmailEntity{ID: "id-1", MessageID: "m1", From: "a@a", To: []string{"b@b"}, Subject: "s", Date: &now, Text: "hi", CreatedAt: now, RawSize: 10}
-	pc := NewParserController(mockParser{ent: ent}, newMemRepo(), nil, logrus.New().WithField("t", "test"), mockLangDetector{})
+	pc := NewParserController(mockParser{ent: ent}, newMemRepo(), nil, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
 	r := setupRouter(pc)
 
 	body := bytes.NewBufferString("raw eml")
@@ -98,7 +117,7 @@ func TestParserController_ParseAndSave_OK(t *testing.T) {
 }
 
 func TestParserController_GetByID_NotFound(t *testing.T) {
-	pc := NewParserController(mockParser{}, newMemRepo(), nil, logrus.New().WithField("t", "test"), mockLangDetector{})
+	pc := NewParserController(mockParser{}, newMemRepo(), nil, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
 	r := setupRouter(pc)
 
 	w := httptest.NewRecorder()
@@ -115,7 +134,7 @@ func TestParserController_GetAll_OK(t *testing.T) {
 	repo.SaveEmail(context.Background(), &repository.EmailEntity{ID: "id-1", MessageID: "m1", CreatedAt: now})
 	repo.SaveEmail(context.Background(), &repository.EmailEntity{ID: "id-2", MessageID: "m2", CreatedAt: now})
 
-	pc := NewParserController(mockParser{}, repo, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
+	pc := NewParserController(mockParser{}, repo, nil, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
 	r := setupRouter(pc)
 
 	w := httptest.NewRecorder()
@@ -137,7 +156,7 @@ func TestParserController_GetAll_OK(t *testing.T) {
 }
 
 func TestParserController_ParseAndSave_BadBody(t *testing.T) {
-	pc := NewParserController(mockParser{ent: &repository.EmailEntity{ID: "x", MessageID: "m", CreatedAt: time.Now()}}, newMemRepo(), nil, logrus.New().WithField("t", "test"), mockLangDetector{})
+	pc := NewParserController(mockParser{ent: &repository.EmailEntity{ID: "x", MessageID: "m", CreatedAt: time.Now()}}, newMemRepo(), nil, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
 	r := setupRouter(pc)
 
 	w := httptest.NewRecorder()
@@ -149,7 +168,7 @@ func TestParserController_ParseAndSave_BadBody(t *testing.T) {
 }
 
 func TestParserController_ParseAndSave_ParseError(t *testing.T) {
-	pc := NewParserController(mockParser{err: errors.New("boom")}, newMemRepo(), nil, logrus.New().WithField("t", "test"), mockLangDetector{})
+	pc := NewParserController(mockParser{err: errors.New("boom")}, newMemRepo(), nil, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
 	r := setupRouter(pc)
 
 	w := httptest.NewRecorder()
@@ -169,7 +188,7 @@ func (r *saveErrRepo) SaveEmail(ctx context.Context, email *repository.EmailEnti
 func TestParserController_ParseAndSave_SaveError(t *testing.T) {
 	now := time.Now().UTC()
 	ent := &repository.EmailEntity{ID: "id-1", MessageID: "m1", From: "a@a", To: []string{"b@b"}, Subject: "s", Date: &now, Text: "hi", CreatedAt: now, RawSize: 10}
-	pc := NewParserController(mockParser{ent: ent}, &saveErrRepo{*newMemRepo()}, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
+	pc := NewParserController(mockParser{ent: ent}, &saveErrRepo{*newMemRepo()}, nil, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
 	r := setupRouter(pc)
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/parse", bytes.NewBufferString("raw"))
@@ -186,7 +205,7 @@ func (r *getErrRepo) GetByID(ctx context.Context, id string) (*repository.EmailE
 }
 
 func TestParserController_GetByID_DBError(t *testing.T) {
-	pc := NewParserController(mockParser{}, &getErrRepo{*newMemRepo()}, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
+	pc := NewParserController(mockParser{}, &getErrRepo{*newMemRepo()}, nil, nil, logrus.New().WithField("t", "test"), mockLangDetector{})
 	r := setupRouter(pc)
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/emails/some", nil)
