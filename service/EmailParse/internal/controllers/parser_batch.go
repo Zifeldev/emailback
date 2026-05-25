@@ -36,9 +36,6 @@ func (pc *ParserController) BatchParseAndSave(c *gin.Context) {
 	}
 
 	maxWorkers := parsePositiveIntQuery(c, "max_workers", runtime.NumCPU())
-	if maxWorkers <= 0 {
-		maxWorkers = 1
-	}
 	if maxWorkers > len(payload) {
 		maxWorkers = len(payload)
 	}

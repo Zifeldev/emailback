@@ -187,8 +187,8 @@ func (pc *ParserController) parseAndSave(ctx context.Context, raw []byte, userID
 	}
 
 	if userID != nil {
-		idCopy := *userID
-		email.UserID = &idCopy
+		userIDValue := *userID
+		email.UserID = &userIDValue
 	}
 
 	if err := pc.repo.SaveEmail(ctx, email); err != nil {
