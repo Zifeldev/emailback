@@ -45,6 +45,7 @@ func (pc *ParserController) BatchParseAndSave(c *gin.Context) {
 
 	itemTimeout := parseDurationQuery(c, "item_timeout")
 	userID := pc.userIDPtr(c)
+	baseCtx := context.WithoutCancel(c.Request.Context())
 
 	type job struct {
 		idx int
@@ -62,12 +63,12 @@ func (pc *ParserController) BatchParseAndSave(c *gin.Context) {
 	worker := func() {
 		defer wg.Done()
 		for j := range jobs {
-			ctx := c.Request.Context()
+			ctx := baseCtx
 			var cancel context.CancelFunc
 			if itemTimeout > 0 {
-				ctx, cancel = context.WithTimeout(ctx, itemTimeout)
+				ctx, cancel = context.WithTimeout(baseCtx, itemTimeout)
 			}
-			res := pc.handleBatchItem(ctx, j.raw, userID)
+			res := pc.safeBatchItem(ctx, j.raw, userID)
 			if cancel != nil {
 				cancel()
 			}
@@ -107,4 +108,14 @@ func (pc *ParserController) handleBatchItem(ctx context.Context, raw string, use
 		return BatchEmailResult{Error: err.Error()}
 	}
 	return BatchEmailResult{ID: email.ID}
+}
+
+func (pc *ParserController) safeBatchItem(ctx context.Context, raw string, userID *int64) (res BatchEmailResult) {
+	defer func() {
+		if r := recover(); r != nil {
+			pc.log.WithField("panic", r).Error("batch parse panic")
+			res = BatchEmailResult{Error: "internal error"}
+		}
+	}()
+	return pc.handleBatchItem(ctx, raw, userID)
 }
