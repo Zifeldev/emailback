@@ -42,7 +42,7 @@ func (pc *ParserController) BatchParseAndSave(c *gin.Context) {
 
 	itemTimeout := parseDurationQuery(c, "item_timeout")
 	userID := pc.userIDPtr(c)
-	baseCtx := context.WithoutCancel(c.Request.Context())
+	baseCtx := c.Request.Context()
 
 	type job struct {
 		idx int
@@ -54,7 +54,7 @@ func (pc *ParserController) BatchParseAndSave(c *gin.Context) {
 	}
 
 	jobs := make(chan job)
-	results := make(chan result, len(payload))
+	results := make(chan result, maxWorkers)
 	var wg sync.WaitGroup
 
 	worker := func() {
